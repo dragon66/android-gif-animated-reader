@@ -30,6 +30,11 @@ public class FrameReader extends AnimatedGIFReader {
 		return (bmp != null)?new GIFFrame(bmp, image_x, image_y, delay, disposalMethod, userInputFlag, transparencyFlag, transparent_color):null;
 	}
 	
+	public GIFFrame getGIFFrameEx(InputStream is) throws Exception {
+		Bitmap bmp = getFrameAsBitmapEx(is);
+		return (bmp != null)?new GIFFrame(bmp, image_x, image_y, delay, disposalMethod, userInputFlag, transparencyFlag, transparent_color):null;
+	}
+	
 	public Bitmap read(InputStream is) throws Exception {
 		return null; // NOOP
 	}

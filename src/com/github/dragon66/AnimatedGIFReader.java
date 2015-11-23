@@ -55,6 +55,7 @@ public class AnimatedGIFReader {
 	private int height;
 	private int bitsPerPixel;
 	private int rgbColorPalette[];
+	private Bitmap baseImage;
 
 	// To keep track of all the frames
 	private List<GIFFrame> gifFrames;
@@ -129,6 +130,46 @@ public class AnimatedGIFReader {
 		if(pixels == null) return null;
 		//Create a Bitmap
 		return Bitmap.createBitmap(pixels, width, height, Bitmap.Config.ARGB_8888);
+	}
+	
+	protected Bitmap getFrameAsBitmapEx(InputStream is) throws Exception {
+		// This single call will trigger the reading of the global scope data
+		Bitmap bmp = getFrameAsBitmap(is);
+		if(bmp == null) return null;
+		int maxWidth = (width < logicalScreenWidth)? width:logicalScreenWidth;
+		int maxHeight = (height < logicalScreenHeight)? height:logicalScreenHeight;
+		if(baseImage == null)
+			baseImage = Bitmap.createBitmap(logicalScreenWidth, logicalScreenHeight, Bitmap.Config.ARGB_8888);
+		// Create a backup Bitmap from the base image for the area of the current frame
+		Bitmap backup = Bitmap.createBitmap(maxWidth, maxHeight, Bitmap.Config.ARGB_8888);
+		int[] colors = new int[maxWidth*maxHeight];
+		baseImage.getPixels(colors, 0, maxWidth, image_x, image_y, maxWidth, maxHeight);
+		backup.setPixels(colors, 0, maxWidth, 0, 0, maxWidth, maxHeight);
+		/* End of backup */
+		// Draw this frame to the base
+		colors = new int[maxWidth*maxHeight];
+		bmp.getPixels(colors, 0, maxWidth, 0, 0, maxWidth, maxHeight);
+		baseImage.setPixels(colors, 0, maxWidth, image_x, image_y, maxWidth, maxHeight);
+		// We need to clone the base image since we are going to dispose it later according to the disposal method
+		Bitmap clone = Bitmap.createBitmap(logicalScreenWidth, logicalScreenHeight, Bitmap.Config.ARGB_8888);
+		colors = new int[logicalScreenWidth*logicalScreenHeight];
+		baseImage.getPixels(colors, 0, logicalScreenWidth, 0, 0, logicalScreenWidth, logicalScreenHeight);
+		clone.setPixels(colors, 0, logicalScreenWidth, 0, 0, logicalScreenWidth, logicalScreenHeight);
+		// Check about disposal method to take action accordingly
+		if(disposalMethod == 1 || disposalMethod == 0) // Leave in place or unspecified
+			; // TODO: need to figure out a way to do this. It's different from desktop
+		else if(disposalMethod == 2) { // Restore to background
+			colors = new int[maxWidth*maxHeight];
+			baseImage.setPixels(colors, 0, maxWidth, image_x, image_y, maxWidth, maxHeight);
+		} else if(disposalMethod == 3) { // Restore to previous
+			colors = new int[maxWidth*maxHeight];
+			backup.getPixels(colors, 0, maxWidth, 0, 0, maxWidth, maxHeight);
+			baseImage.setPixels(colors, 0, maxWidth, image_x, image_y, maxWidth, maxHeight);
+		} else { // To be defined - should never come here
+			baseImage = Bitmap.createBitmap(logicalScreenWidth, logicalScreenHeight, Bitmap.Config.ARGB_8888);
+		}	
+		
+		return clone;
 	}
 	
 	/**
@@ -313,7 +354,7 @@ public class AnimatedGIFReader {
 		gifFrames = new ArrayList<GIFFrame>();
 		Bitmap bmp = null;
 		
-		while((bmp = getFrameAsBitmap(is)) != null) {
+		while((bmp = getFrameAsBitmapEx(is)) != null) {
 			gifFrames.add(new GIFFrame(bmp, image_x, image_y, delay, disposalMethod, userInputFlag, transparencyFlag, transparent_color));
 			frames.add(bmp);			
 		}
